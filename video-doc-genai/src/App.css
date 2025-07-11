@@ -1,8 +1,8 @@
 body {
   margin: 0;
   font-family: 'Poppins', sans-serif;
-  background: linear-gradient(135deg, #6a0dad, #ffffff);
-  color: #2c2c2c;
+  background: linear-gradient(135deg, #000000, #1a1a1a);
+  color: #f5f5f5;
 }
 
 .main {
@@ -12,24 +12,25 @@ body {
 
 .hero {
   padding: 60px 20px;
-  background-color: rgba(255, 255, 255, 0.9);
+  background-color: #1a1a1a;
   border-radius: 12px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 20px rgba(255, 0, 0, 0.2);
   animation: fadeIn 1s ease-in-out;
 }
 
 .hero h1 {
   font-size: 3rem;
-  color: #6a0dad;
+  color: #ff2e2e;
 }
 
 .hero p {
   font-size: 1.2rem;
   margin: 20px 0;
+  color: #ccc;
 }
 
 .cta-btn {
-  background-color: #6a0dad;
+  background-color: #ff2e2e;
   color: white;
   border: none;
   padding: 12px 24px;
@@ -40,7 +41,7 @@ body {
 }
 
 .cta-btn:hover {
-  background-color: #4b0082;
+  background-color: #cc0000;
 }
 
 .features {
@@ -49,7 +50,7 @@ body {
 
 .features h2 {
   font-size: 2rem;
-  color: #4b0082;
+  color: #ff2e2e;
   margin-bottom: 30px;
 }
 
@@ -61,10 +62,10 @@ body {
 }
 
 .feature-card {
-  background-color: white;
+  background-color: #2a2a2a;
   border-radius: 10px;
   padding: 20px;
-  box-shadow: 0 4px 12px rgba(106, 13, 173, 0.2);
+  box-shadow: 0 4px 12px rgba(255, 0, 0, 0.2);
   transition: transform 0.3s ease;
 }
 
@@ -73,13 +74,13 @@ body {
 }
 
 .feature-card h3 {
-  color: #6a0dad;
+  color: #ff2e2e;
   margin-bottom: 10px;
 }
 
 .icon {
   font-size: 2.5rem;
-  color: #6a0dad;
+  color: #ff2e2e;
   margin-bottom: 10px;
 }
 
@@ -87,7 +88,7 @@ body {
   margin-top: 60px;
   padding: 20px;
   font-size: 0.9rem;
-  color: #6a0dad;
+  color: #ff2e2e;
 }
 
 @keyframes fadeIn {
