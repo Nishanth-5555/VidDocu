@@ -8,17 +8,17 @@ function App() {
     <div className="main">
       <header className="hero">
         <h1>🎥 Video to Documentation Converter</h1>
-        <p>Turn product walkthroughs into structured, searchable docs using GenAI</p>
-        <button className="cta-btn">Get Started</button>
+        <p>Transform product demos into structured, searchable knowledge using GenAI</p>
+        <button className="cta-btn">Try It Now</button>
       </header>
 
       <section className="features">
-        <h2> Key Features</h2>
+        <h2>✨ Key Features</h2>
         <div className="feature-grid">
           <div className="feature-card">
             <FaMicrophone className="icon" />
             <h3>Whisper AI Transcription</h3>
-            <p>Multilingual, high-accuracy audio-to-text conversion</p>
+            <p>Accurate multilingual transcription from video audio</p>
           </div>
           <div className="feature-card">
             <FaRobot className="icon" />
@@ -28,7 +28,7 @@ function App() {
           <div className="feature-card">
             <MdStorage className="icon" />
             <h3>Firebase Storage</h3>
-            <p>Secure cloud storage for videos and documentation</p>
+            <p>Securely store videos and generated documentation</p>
           </div>
           <div className="feature-card">
             <FaCloudUploadAlt className="icon" />
@@ -39,7 +39,7 @@ function App() {
       </section>
 
       <footer className="footer">
-        <p>Made by maums</p>
+        <p>Made by the maums</p>
       </footer>
     </div>
   );
