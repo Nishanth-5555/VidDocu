@@ -1,5 +1,7 @@
 import React from 'react';
 import './App.css';
+import { FaMicrophone, FaRobot, FaCloudUploadAlt } from 'react-icons/fa';
+import { MdStorage } from 'react-icons/md';
 
 function App() {
   return (
@@ -14,26 +16,30 @@ function App() {
         <h2>✨ Key Features</h2>
         <div className="feature-grid">
           <div className="feature-card">
-            <h3>🎙️ Whisper AI Transcription</h3>
+            <FaMicrophone className="icon" />
+            <h3>Whisper AI Transcription</h3>
             <p>Accurate multilingual transcription from video audio</p>
           </div>
           <div className="feature-card">
-            <h3>🧠 GPT-4o Summarization</h3>
-            <p>Auto-generates structured docs with FAQs and usage guides</p>
+            <FaRobot className="icon" />
+            <h3>GPT-4o Summarization</h3>
+            <p>Auto-generates structured docs with FAQs and guides</p>
           </div>
           <div className="feature-card">
-            <h3>☁️ Firebase Storage</h3>
+            <MdStorage className="icon" />
+            <h3>Firebase Storage</h3>
             <p>Securely store videos and generated documentation</p>
           </div>
           <div className="feature-card">
-            <h3>🌐 React + Flask Integration</h3>
+            <FaCloudUploadAlt className="icon" />
+            <h3>React + Flask Integration</h3>
             <p>Fast, scalable frontend and backend architecture</p>
           </div>
         </div>
       </section>
 
       <footer className="footer">
-        <p>Made by Mountain and Hound</p>
+        <p>Made by the maums</p>
       </footer>
     </div>
   );
