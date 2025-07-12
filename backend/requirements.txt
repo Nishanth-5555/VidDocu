@@ -1,0 +1,7 @@
+flask
+flask-cors
+openai
+ffmpeg-python
+python-dotenv
+whisper @ git+https://github.com/openai/whisper.git
+
