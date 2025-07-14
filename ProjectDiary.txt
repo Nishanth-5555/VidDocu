@@ -1,0 +1,25 @@
+## 11th July, 2025
+* Created our repository VidDocu
+* Got familiar with the git commands for the repository and added an ssh key for the repo.
+* Decided to use:
+ -for Frontend: ReactJS
+ -for Backend: Python with Flask
+ -for transcription and documentation: Whisper (openAI)
+ -for storage: Firebase storage
+ -for hosting(optional)-Git Pages
+* Created a creative homepage with react icons.
+
+## 12th July,2025
+* Whisper -> WhisperX
+* setting up WhisperX
+* tested transciption in terminal
+
+## 13th July, 2025
+BREAK
+
+## 14th July, 2025
+* Integrated frontend and backend
+* Added a separate webpage for transcription and documentation.
+* Addition of transcribing and documenting YouTube videos by using their URL.
+
+
