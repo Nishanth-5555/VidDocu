@@ -1,7 +1,9 @@
-import React from 'react';
-import './App.css';
-import { FaMicrophone, FaRobot, FaCloudUploadAlt } from 'react-icons/fa';
-import { MdStorage } from 'react-icons/md';
+import React from "react";
+import UploadForm from "./UploadForm";
+import { FaMicrophone, FaRobot, FaCloudUploadAlt } from "react-icons/fa";
+import { MdStorage } from "react-icons/md";
+import "./App.css"; // Or wherever your stylesheet lives
+
 
 function App() {
   return (
@@ -36,6 +38,12 @@ function App() {
             <p>Fast, scalable frontend and backend architecture</p>
           </div>
         </div>
+      </section>
+
+      {/* 🔽 Add the UploadForm component here */}
+      <section className="upload-section">
+        <h2>📤 Try It Out!</h2>
+        <UploadForm />
       </section>
 
       <footer className="footer">
