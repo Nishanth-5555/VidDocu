@@ -235,4 +235,98 @@ body {
   border-radius: 8px;
   box-shadow: 0 2px 6px rgba(106, 13, 173, 0.1);
 }
+<<<<<<< HEAD
+.browse-btn {
+  display: inline-block;
+  padding: 0.6rem 1.4rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, #6a0dad, #d76ef5);
+  border: none;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(106, 13, 173, 0.25);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.browse-btn:hover {
+  background: linear-gradient(135deg, #4b0082, #c04cf5);
+  transform: scale(1.05);
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0px rgba(106, 13, 173, 0.3); }
+  50% { box-shadow: 0 0 12px rgba(106, 13, 173, 0.6); }
+  100% { box-shadow: 0 0 0px rgba(106, 13, 173, 0.3); }
+}
+
+.browse-btn {
+  animation: pulse 2s infinite;
+}
+.youtube-input {
+  flex: 1;
+  min-width: 250px;
+  padding: 0.6rem 1rem;
+  font-size: 1rem;
+  border: 2px solid #6a0dad;
+  border-radius: 10px;
+  background-color: #fff;
+  color: #2c2c2c;
+  box-shadow: 0 4px 10px rgba(106, 13, 173, 0.1);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.youtube-input::placeholder {
+  color: #999;
+}
+
+.youtube-input:focus {
+  border-color: #4b0082;
+  box-shadow: 0 0 0 3px rgba(106, 13, 173, 0.2);
+  outline: none;
+}
+.submit-btn {
+  padding: 0.6rem 1.4rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, #6a0dad, #d76ef5);
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 6px 14px rgba(106, 13, 173, 0.3);
+  cursor: pointer;
+  transition: transform 0.3s ease, background 0.3s ease;
+}
+
+.submit-btn:hover {
+  background: linear-gradient(135deg, #4b0082, #c04cf5);
+  transform: scale(1.05);
+}
+.url-submit-row {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+.doc-block {
+  background-color: #fff;
+  padding: 1rem 1.4rem;
+  margin: 1rem 0;
+  border-left: 4px solid #6a0dad;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(106, 13, 173, 0.1);
+}
+
+.doc-block h4 {
+  color: #6a0dad;
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+}
+=======
+>>>>>>> origin/main
 
