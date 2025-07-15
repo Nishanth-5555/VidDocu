@@ -5,8 +5,13 @@ function UploadForm() {
   const [documentation, setDocumentation] = useState([]);
   const [faqs, setFaqs] = useState([]);
   const [videoUrl, setVideoUrl] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [videoFile, setVideoFile] = useState(null);
   const [expandedIndex, setExpandedIndex] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const toggleCollapse = (index) => {
+  setExpandedIndex((prev) => (prev === index ? null : index));
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -14,8 +19,8 @@ function UploadForm() {
 
     if (videoUrl) {
       formData.append("video_url", videoUrl);
-    } else if (e.target.video.files.length > 0) {
-      formData.append("video", e.target.video.files[0]);
+    } else if (videoFile) {
+      formData.append("video", videoFile);
     } else {
       alert("Please upload a video or enter a URL.");
       return;
@@ -40,27 +45,37 @@ function UploadForm() {
     }
   };
 
-  const toggleCollapse = (index) => {
-    setExpandedIndex((prev) => (prev === index ? null : index));
-  };
-
   return (
     <div className="upload-container">
       <h2>📤 Upload a Demo Video</h2>
+
       <form onSubmit={handleSubmit}>
+        <label htmlFor="video-upload" className="browse-btn">
+          🎥 Browse Video
+        </label>
         <input
+          id="video-upload"
           type="file"
           accept="video/*"
           name="video"
+          style={{ display: "none" }}
+          onChange={(e) => setVideoFile(e.target.files[0])}
         />
+
         <p>— or —</p>
-        <input
-          type="text"
-          placeholder="Paste video URL (e.g. .mp4, .webm)"
-          value={videoUrl}
-          onChange={(e) => setVideoUrl(e.target.value)}
-        />
-        <button type="submit">Submit</button>
+
+        <div className="url-submit-row">
+          <input
+            type="text"
+            placeholder="Paste YouTube video URL"
+            value={videoUrl}
+            onChange={(e) => setVideoUrl(e.target.value)}
+            className="youtube-input"
+          />
+          <button type="submit" className="submit-btn">
+            🚀 Submit
+          </button>
+        </div>
       </form>
 
       {loading && <p>⏳ Processing...</p>}
@@ -71,29 +86,34 @@ function UploadForm() {
           <p>{transcript}</p>
 
           <h3>📄 Documentation</h3>
-          {Array.isArray(documentation) ? (
-            documentation.map((point, index) => (
-              <div key={index} className="collapse-item">
-                <button
-                  className="collapse-toggle"
-                  onClick={() => toggleCollapse(index)}
-                >
-                  {expandedIndex === index ? "− " : "+ "} Section {index + 1}
-                </button>
-                {expandedIndex === index && <p>{point}</p>}
-              </div>
-            ))
-          ) : (
-            <p>{documentation}</p>
-          )}
+          <div className="documentation-section">
+  {documentation.map((point, index) => (
+    <div key={index} className="collapse-item">
+      <button
+        className="collapse-toggle"
+        onClick={() => toggleCollapse(index)}
+      >
+        {expandedIndex === index ? "− " : "+ "} 📄 Section {index + 1}
+      </button>
+      {expandedIndex === index && (
+        <div className="doc-block">
+          <p>{point.replace(/^•\s?/, "")}</p>
+        </div>
+      )}
+    </div>
+  ))}
+</div>
+
+
 
           <h3>❓ FAQs</h3>
           {faqs.map((faq, index) => (
-            <div key={index} className="faq-item">
-              <strong>Q: {faq.question}</strong>
-              <p>A: {faq.answer}</p>
-            </div>
-          ))}
+          <div key={index} className="faq-item">
+          <strong>Q: {faq.question}</strong>
+          <p>A: {faq.answer}</p>
+        </div>
+        ))}
+
         </div>
       )}
     </div>
@@ -101,4 +121,3 @@ function UploadForm() {
 }
 
 export default UploadForm;
-
