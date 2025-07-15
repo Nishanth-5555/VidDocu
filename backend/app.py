@@ -11,9 +11,13 @@ app = Flask(__name__)
 CORS(app)
 
 # Load summarizer and transcription model
-summarizer = pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
+summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model = whisperx.load_model("base", device, compute_type="float32")
+from transformers import pipeline
+
+title_generator = pipeline("text2text-generation", model="t5-small")
+
 
 def download_youtube_video(url, output_path="temp.mp4"):
     ydl_opts = {
@@ -24,17 +28,6 @@ def download_youtube_video(url, output_path="temp.mp4"):
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])
-
-def generate_faqs(transcript):
-    questions = re.findall(r"(how to .*?|what is .*?|why .*?|can .*?|does .*?)", transcript, re.IGNORECASE)
-    faqs = [{
-        "question": q.strip().capitalize() + "?",
-        "answer": "This section discusses: " + q.strip().capitalize() + "."
-    } for q in questions]
-    return faqs[:10] if faqs else [{
-        "question": "What is this video about?",
-        "answer": "Refer to the summary and transcript for more details."
-    }]
 
 @app.route("/upload", methods=["POST"])
 def upload_video():
@@ -52,12 +45,17 @@ def upload_video():
         transcript = " ".join([seg["text"] for seg in result["segments"]])
         summary = summarizer(transcript, max_length=300, min_length=60, do_sample=False)
         bullet_points = [f"• {line.strip()}" for line in summary[0]["summary_text"].split(".") if line.strip()]
-        faqs = generate_faqs(transcript)
+        faq_list = [
+    {"question": "How do I upload a video?", "answer": "You can upload a video file or paste a YouTube URL."},
+    {"question": "What formats are supported?", "answer": "MP4, MOV, and YouTube links are supported."},
+    # more FAQs...
+]
+
 
         return jsonify({
             "transcript": transcript,
             "documentation": bullet_points,
-            "faqs": faqs
+            "faqs": faq_list
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
