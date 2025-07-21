@@ -12,9 +12,13 @@ function Home() {
       <header className="hero">
         <h1>🎥 Video to Documentation Converter</h1>
         <p>Transform product demos into structured, searchable knowledge using GenAI</p>
-        <button className="cta-btn" onClick={() => navigate("/upload")}>
-          Try It Now
-        </button>
+
+        <div className="home-button-group">
+          <button className="cta-btn" onClick={() => navigate("/upload")}>
+            🚀 Try It Now
+          </button>
+          
+        </div>
       </header>
 
       <section className="features">
@@ -27,14 +31,10 @@ function Home() {
           </div>
           <div className="feature-card">
             <FaRobot className="icon" />
-            <h3>GPT-4o Summarization</h3>
-            <p>Auto-generates structured docs with FAQs and guides</p>
+            <h3>BART Large CNN by Meta AI</h3>
+            <p> A pretrained summarization model available via Hugging Face</p>
           </div>
-          <div className="feature-card">
-            <MdStorage className="icon" />
-            <h3>Firebase Storage</h3>
-            <p>Securely store videos and generated documentation</p>
-          </div>
+          
           <div className="feature-card">
             <FaCloudUploadAlt className="icon" />
             <h3>React + Flask Integration</h3>
@@ -44,8 +44,13 @@ function Home() {
       </section>
 
       <footer className="footer">
+          <button className="cta-btn secondary" onClick={() => navigate("/faqs")}>
+            📚 Learn More
+          </button>
         <p>Made by the maums</p>
       </footer>
     </div>
   );
 }
+
+export default Home;
