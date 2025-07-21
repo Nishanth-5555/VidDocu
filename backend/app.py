@@ -37,16 +37,21 @@ def download_youtube_video(url, output_path="temp.mp4"):
 def summarize_text(text):
     token_count = len(text.split())
 
-    # Auto-tune length limits based on input size
-    max_len = min(300, max(30, token_count * 3))
-    min_len = min(100, max(10, token_count * 1))
+    # Smart limits based on input length
+    max_len = max(30, min(300, int(token_count * 0.6)))
+    min_len = max(10, min(100, int(token_count * 0.3)))
 
-    # Skip summarizing ultra-short inputs
     if token_count < 8:
-        return text
+        return text  # skip summarizing ultra-short input
 
-    summary = summarizer(text, max_length=max_len, min_length=min_len, do_sample=False)
+    summary = summarizer(
+        text,
+        max_length=max_len,
+        min_length=min_len,
+        do_sample=False
+    )
     return summary[0]["summary_text"]
+
 
 
 
@@ -74,22 +79,21 @@ def upload_video():
 
 
         # ❓ Static FAQs
-        faq_list = [
-            {
-                "question": "How do I upload a video?",
-                "answer": "You can upload a video file or paste a YouTube URL."
-            },
-            {
-                "question": "What formats are supported?",
-                "answer": "MP4, MOV, and YouTube links are supported."
-            }
-        ]
+        #faq_list = [
+         #   {
+          #      "question": "How do I upload a video?",
+           #     "answer": "You can upload a video file or paste a YouTube URL."
+            #},
+            #{
+             #   "question": "What formats are supported?",
+              #  "answer": "MP4, MOV, and YouTube links are supported."
+            #}
+        #]
 
         # 📦 Return data
         return jsonify({
             "transcript": transcript,
-            "documentation": bullet_points,
-            "faqs": faq_list
+            "documentation": bullet_points
         })
 
     except Exception as e:
