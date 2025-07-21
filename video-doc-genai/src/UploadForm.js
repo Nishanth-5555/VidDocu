@@ -85,8 +85,8 @@ function UploadForm() {
           <h3>📝 Transcript</h3>
           <p>{transcript}</p>
 
-          <h3>📄 Documentation</h3>
-          <div className="documentation-section">
+        <h3>📄 Documentation</h3>
+<div className="documentation-section">
   {documentation.map((point, index) => (
     <div key={index} className="collapse-item">
       <button
@@ -97,7 +97,7 @@ function UploadForm() {
       </button>
       {expandedIndex === index && (
         <div className="doc-block">
-          <p>{point.replace(/^•\s?/, "")}</p>
+          <p>{typeof point === "string" ? point.replace(/^•\s?/, "") : "⚠️ Summary missing"}</p>
         </div>
       )}
     </div>
@@ -105,14 +105,6 @@ function UploadForm() {
 </div>
 
 
-
-          <h3>❓ FAQs</h3>
-          {faqs.map((faq, index) => (
-          <div key={index} className="faq-item">
-          <strong>Q: {faq.question}</strong>
-          <p>A: {faq.answer}</p>
-        </div>
-        ))}
 
         </div>
       )}
