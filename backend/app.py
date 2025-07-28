@@ -186,6 +186,60 @@ def chunk_segments(segments: list, max_words: int = 150) -> list:
     app_logger.info(f"Transcript chunking complete. Generated {len(chunks)} chunks.")
     return chunks
 
+# In app.py
+
+def generate_faqs(full_transcript_text: str) -> list:
+    """
+    Generates a list of Frequently Asked Questions (FAQs) based on the full transcript.
+    """
+    app_logger.info("Generating FAQs based on the full transcript...")
+    system_message = """You are a JSON generation machine. Your ONLY task is to create a 'Frequently Asked Questions' section based on the provided transcript.
+    - Generate 3 to 5 relevant FAQs.
+    - The answers must be based ONLY on the information provided.
+    - **CRITICAL:** Your entire response must be ONLY the raw JSON array itself. Do NOT include any introductory text, markdown backticks, or explanations. Your response must start with `[` and end with `]`.
+    
+    Example format:
+    [
+        {"question": "How do I start a new project?", "answer": "To start a new project, navigate to the dashboard and click the 'New Project' button."},
+        {"question": "What file types are supported?", "answer": "The system supports uploading .JPG, .PNG, and .SVG files."}
+    ]
+    """
+    user_prompt = f"Here is the full transcript:\n\n{full_transcript_text}"
+    
+    try:
+        response_content = call_chatllm_sdk(
+            user_prompt, 
+            system_message, 
+            llm_name="MISTRAL_7B_INSTRUCT",
+            max_tokens=1000, 
+            temperature=0.2
+        )
+        
+        # --- ROBUST JSON PARSING ---
+        # Find the start of the JSON array '[' to discard any preceding text
+        json_start_index = response_content.find('[')
+        if json_start_index == -1:
+            app_logger.error(f"No JSON array found in LLM response. Raw Response: {response_content}")
+            return []
+            
+        json_string = response_content[json_start_index:]
+        faqs = json.loads(json_string)
+        
+        if isinstance(faqs, list) and all("question" in item and "answer" in item for item in faqs):
+            app_logger.info(f"Successfully generated and parsed {len(faqs)} FAQs.")
+            return faqs
+        else:
+            app_logger.error("Generated FAQ content is not in the expected format (list of dicts).")
+            return []
+            
+    except json.JSONDecodeError as e:
+        app_logger.error(f"Failed to decode JSON from LLM response: {e}")
+        app_logger.error(f"LLM Raw Response: {response_content}") # Log the problematic response
+        return []
+    except Exception as e:
+        app_logger.error(f"An unexpected error occurred during FAQ generation: {e}", exc_info=True)
+        return []
+    
 # --- Helper for extracting YouTube Video ID ---
 def get_youtube_video_id(url: str) -> str | None:
     """Extracts YouTube video ID from various YouTube URL formats."""
@@ -206,7 +260,6 @@ def upload_video():
     global transcription_model
     if transcription_model is None:
         app_logger.info("WhisperX model was not loaded globally. Attempting to load locally for this request on CPU.")
-        # Force CPU to avoid CUDA issues on non-GPU machines or misconfigurations
         transcription_model = whisperx.load_model("base", device="cpu", compute_type="float32")
 
     video_id = None
@@ -226,7 +279,9 @@ def upload_video():
             file = request.files["video"]
             if file.filename == '':
                 raise RuntimeError("No selected file.")
-            temp_video_path = f"temp_{uuid.uuid4().hex}_{secure_filename(file.filename.split('.')[-1])}" # Add original extension
+            # Note: secure_filename is a good practice to add for security
+            # from werkzeug.utils import secure_filename
+            temp_video_path = f"temp_{uuid.uuid4().hex}"
             file.save(temp_video_path)
             app_logger.info(f"Local video saved to: {temp_video_path}")
 
@@ -235,24 +290,12 @@ def upload_video():
         temp_audio_path = f"temp_{uuid.uuid4().hex}.mp3"
         
         try:
-            # Use a subprocess call to capture ffmpeg output for better debugging if it fails
-            ffmpeg_command = [
-                'ffmpeg',
-                '-i', temp_video_path,
-                '-vn', # no video
-                '-acodec', 'libmp3lame', # MP3 audio codec
-                '-q:a', '2', # audio quality (2 is good)
-                temp_audio_path
-            ]
+            ffmpeg_command = ['ffmpeg', '-i', temp_video_path, '-vn', '-acodec', 'libmp3lame', '-q:a', '2', temp_audio_path]
             app_logger.info(f"Running FFmpeg command: {' '.join(ffmpeg_command)}")
-            subprocess_process = subprocess.run(ffmpeg_command, capture_output=True, text=True, check=True)
-            app_logger.info(f"FFmpeg stdout: {subprocess_process.stdout}")
-            app_logger.info(f"FFmpeg stderr: {subprocess_process.stderr}")
+            subprocess.run(ffmpeg_command, capture_output=True, text=True, check=True)
             app_logger.info("Audio extraction by FFmpeg complete.")
         except subprocess.CalledProcessError as e:
-            app_logger.error(f"FFmpeg audio extraction failed: {e}")
-            app_logger.error(f"FFmpeg stdout: {e.stdout}")
-            app_logger.error(f"FFmpeg stderr: {e.stderr}")
+            app_logger.error(f"FFmpeg audio extraction failed: {e.stderr}")
             raise RuntimeError(f"Audio extraction failed. Check FFmpeg installation and video file. Error: {e.stderr}")
         except FileNotFoundError:
             app_logger.error("FFmpeg command not found. Is FFmpeg installed and in your PATH?")
@@ -264,7 +307,6 @@ def upload_video():
         
         result = transcription_model.transcribe(audio)
         
-        # --- Prepare Structured Transcript Segments for Frontend ---
         full_transcript_segments_for_frontend = []
         if result and "segments" in result:
             for seg in result["segments"]:
@@ -272,29 +314,23 @@ def upload_video():
                     full_transcript_segments_for_frontend.append({
                         "text": seg["text"].strip(),
                         "start": seg["start"],
-                        "formatted_timestamp": format_timestamp(seg["start"]) # Add formatted timestamp here
+                        "formatted_timestamp": format_timestamp(seg["start"])
                     })
         
         if not full_transcript_segments_for_frontend:
-            app_logger.warning("WhisperX returned no transcript segments. Check audio quality or model.")
-            # Do NOT raise error here, just return empty segments and proceed, or handle gracefully.
-            # If no segments, LLM calls won't happen (chunk_segments will be empty).
+            app_logger.warning("WhisperX returned no transcript segments.")
 
         app_logger.info(f"Transcription complete. Found {len(full_transcript_segments_for_frontend)} segments.")
 
         sections = []
-        # Only call LLM if there are actual transcript segments
         if full_transcript_segments_for_frontend:
             app_logger.info("Generating documentation sections with ChatLLM via SDK...")
-            # Use original WhisperX result segments for chunking to preserve original structure/timing
             for chunk in chunk_segments(result.get("segments", [])): 
                 if not chunk["text"].strip():
                     continue
-
                 try:
                     title = generate_title(chunk["text"])
                     summary = summarize_text(chunk["text"])
-                    
                     if summary and title:
                         sections.append({
                             "title": title.strip(),
@@ -305,18 +341,27 @@ def upload_video():
                     app_logger.error(f"LLM generation failed for a chunk: {llm_error}", exc_info=True)
                     sections.append({
                         "title": "Error Generating Section",
-                        "summary": f"Could not generate content for this part due to LLM error. Please check backend logs. Error: {llm_error}",
+                        "summary": f"Could not generate content. Error: {llm_error}",
                         "timestamp": chunk.get("timestamp", 0)
                     })
             app_logger.info("Documentation generation complete.")
         else:
             app_logger.warning("No transcript segments to generate documentation from.")
+            
+        # --- Generate FAQs using the full transcript ---
+        faqs = []
+        if full_transcript_segments_for_frontend:
+            full_text_for_faqs = " ".join(seg['text'] for seg in full_transcript_segments_for_frontend)
+            faqs = generate_faqs(full_text_for_faqs)
+        else:
+            app_logger.warning("No transcript text available to generate FAQs.")
 
-
+        # --- Final JSON Response ---
         return jsonify({
             "full_transcript_segments": full_transcript_segments_for_frontend,
             "documentation": sections,
-            "video_id": video_id # Pass YouTube video ID for player
+            "faqs": faqs,
+            "video_id": video_id
         })
 
     except RuntimeError as re:
@@ -329,19 +374,8 @@ def upload_video():
     finally:
         for temp_file in [temp_video_path, temp_audio_path]:
             if temp_file and os.path.exists(temp_file):
-                os.remove(temp_file)
-                app_logger.info(f"Cleaned up {temp_file}")
-            else:
-                app_logger.info(f"No temp file to clean up: {temp_file}") # Log if file didn't exist
-
-@app.errorhandler(Exception)
-def handle_exception(e):
-    app_logger.error(f"An unhandled Flask exception occurred: {e}", exc_info=True)
-    return jsonify({
-        "error": str(e),
-        "type": type(e).__name__,
-        "message": "An unexpected error occurred on the server."
-    }), 500
-
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+                try:
+                    os.remove(temp_file)
+                    app_logger.info(f"Cleaned up {temp_file}")
+                except OSError as e:
+                    app_logger.error(f"Error removing file {temp_file}: {e}")
