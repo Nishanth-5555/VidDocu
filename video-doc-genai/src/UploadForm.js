@@ -1,23 +1,22 @@
 import React, { useState, useEffect, useRef } from "react";
-// Import marked.js if you installed it via npm/yarn
-import { marked } from 'marked'; // <--- THIS LINE IS CRUCIAL IF INSTALLED VIA NPM/YARN
+import { marked } from 'marked';
 
 function UploadForm() {
   const [transcriptSegments, setTranscriptSegments] = useState([]);
   const [documentationSections, setDocumentationSections] = useState([]);
+  const [faqs, setFaqs] = useState([]);
   const [videoUrl, setVideoUrl] = useState("");
   const [videoFile, setVideoFile] = useState(null);
   const [expandedIndex, setExpandedIndex] = useState(null);
+  const [expandedFaqIndex, setExpandedFaqIndex] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [currentVideoId, setCurrentVideoId] = useState(null);
 
   const playerRef = useRef(null);
-
   const sectionEmojis = ["✨", "🚀", "💡", "🛠️", "🎯", "📊", "✅", "🌐", "🔗", "🔍"];
 
   // --- Utility Functions ---
-
   const formatTime = (seconds) => {
     if (isNaN(seconds) || seconds < 0) return "00:00:00";
     const date = new Date(seconds * 1000);
@@ -34,6 +33,10 @@ function UploadForm() {
   const toggleCollapse = (index) => {
     setExpandedIndex((prev) => (prev === index ? null : index));
   };
+  
+  const toggleFaqCollapse = (index) => {
+    setExpandedFaqIndex((prev) => (prev === index ? null : index));
+  };
 
   // --- YouTube Player Integration ---
   useEffect(() => {
@@ -42,7 +45,7 @@ function UploadForm() {
         createYouTubePlayer(currentVideoId);
       } else {
         const tag = document.createElement("script");
-        tag.src = "https://www.youtube.com/iframe_api"; // YouTube IFrame Player API
+        tag.src = "https://www.youtube.com/iframe_api"; // Official URL
         const firstScriptTag = document.getElementsByTagName("script")[0];
         firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
         
@@ -63,16 +66,8 @@ function UploadForm() {
     }
     playerRef.current = new window.YT.Player("youtube-player", {
       videoId: videoId,
-      playerVars: {
-        controls: 1,
-        autoplay: 0,
-        modestbranding: 1,
-        rel: 0,
-        iv_load_policy: 3,
-      },
-      events: {
-        onReady: (event) => console.log("YouTube Player is ready"),
-      },
+      playerVars: { controls: 1, autoplay: 0, modestbranding: 1, rel: 0, iv_load_policy: 3 },
+      events: { onReady: () => console.log("YouTube Player is ready") },
     });
   };
 
@@ -92,6 +87,7 @@ function UploadForm() {
     setErrorMessage("");
     setTranscriptSegments([]);
     setDocumentationSections([]);
+    setFaqs([]);
     setCurrentVideoId(null);
 
     const formData = new FormData();
@@ -116,6 +112,8 @@ function UploadForm() {
       });
 
       const data = await res.json();
+      
+      console.log("API RESPONSE RECEIVED:", data); // <-- DEBUGGING LINE ADDED
 
       if (res.ok) {
         if (data.error) {
@@ -123,11 +121,12 @@ function UploadForm() {
         }
         setTranscriptSegments(data.full_transcript_segments || []);
         setDocumentationSections(data.documentation || []);
+        setFaqs(data.faqs || []);
         
         if (isYouTube && data.video_id) {
             setCurrentVideoId(data.video_id);
         } else if (!isYouTube) {
-            setErrorMessage("Video playback for uploaded files is not supported in this demo. Please use a YouTube URL.");
+            setErrorMessage("Video playback for uploaded files is not supported. Please use a YouTube URL to enable this feature.");
         }
 
       } else {
@@ -172,8 +171,8 @@ function UploadForm() {
             onChange={(e) => setVideoUrl(e.target.value)}
             className="youtube-input"
           />
-          <button type="submit" className="submit-btn">
-            🚀 Submit
+          <button type="submit" className="submit-btn" disabled={loading}>
+            {loading ? "Processing..." : "🚀 Submit"}
           </button>
         </div>
       </form>
@@ -181,12 +180,12 @@ function UploadForm() {
       {loading && <p className="loading-message">⏳ Processing... This may take a few minutes.</p>}
       {errorMessage && <p className="error-message">{errorMessage}</p>}
 
-      {(transcriptSegments.length > 0 || documentationSections.length > 0 || loading) && (
+      {(transcriptSegments.length > 0 || documentationSections.length > 0 || faqs.length > 0 || loading) && (
         <div className="results-area">
           <div className="results-panel video-player-panel">
             <h3>Video Playback 🎥</h3>
             <div id="youtube-player" style={{ width: '100%', height: '360px' }}>
-                { !currentVideoId && !errorMessage && !loading && <p className="video-placeholder-text">Please provide a YouTube URL to enable video playback.</p> }
+                { !currentVideoId && !errorMessage && !loading && <p className="video-placeholder-text">Provide a YouTube URL to enable video playback.</p> }
                 { loading && <p className="video-placeholder-text">Loading video player...</p>}
             </div>
           </div>
@@ -223,12 +222,38 @@ function UploadForm() {
                       <span className="doc-timestamp"> ⏱️ {formatTime(section.timestamp)}</span>
                     </button>
                     {expandedIndex === index && (
-                      <div className="doc-block" dangerouslySetInnerHTML={{ __html: marked.parse(section.summary) }} /> // <--- KEY CHANGE HERE //
+                      <div className="doc-block" dangerouslySetInnerHTML={{ __html: marked.parse(section.summary) }} />
                     )}
                   </div>
                 ))
               ) : (
                 !loading && <p>No documentation generated.</p>
+              )}
+            </div>
+          </div>
+          
+          <div className="results-panel">
+            <h3>Frequently Asked Questions ❓</h3>
+            <div className="faq-section-output">
+              {faqs.length > 0 ? (
+                faqs.map((faq, index) => (
+                  <div key={index} className="doc-collapse-item">
+                    <button
+                      className="doc-collapse-toggle"
+                      onClick={() => toggleFaqCollapse(index)}
+                    >
+                      {expandedFaqIndex === index ? "− " : "+ "}
+                      {faq.question}
+                    </button>
+                    {expandedFaqIndex === index && (
+                      <div className="doc-block">
+                        <p>{faq.answer}</p>
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                !loading && <p>No FAQs generated.</p>
               )}
             </div>
           </div>
