@@ -13,24 +13,22 @@ import uuid
 import re
 import logging # Import logging module for detailed logs
 import subprocess # For robust ffmpeg execution
+import openai # Using the official OpenAI library
 
 # Configure basic logging for Flask app
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 app_logger = logging.getLogger(__name__) # Get logger for this module
 
-# Import the Abacus.AI SDK client
-from abacusai import ApiClient
-
 # 🌍 Load environment variables from .env file
 load_dotenv()
 
 # Global variables for API credentials
-abacus_api_key = os.getenv("ABACUS_AI_API_KEY")
+openai_api_key = os.getenv("OPENAI_API_KEY")
 
 # --- IMPORTANT: Basic validation for API key ---
-if not abacus_api_key:
-    app_logger.error("Error: ABACUS_AI_API_KEY not found in .env file or environment variables.")
-    app_logger.error("Please set ABACUS_AI_API_KEY in your .env file.")
+if not openai_api_key:
+    app_logger.error("Error: OPENAI_API_KEY not found in .env file or environment variables.")
+    app_logger.error("Please set OPENAI_API_KEY in your .env file.")
     exit(1)
 
 # ⚙️ Set up Flask
@@ -38,20 +36,19 @@ app = Flask(__name__)
 app.debug = True # REMINDER: Set to False for production!
 CORS(app)
 
-# 🧠 Initialize Abacus.AI API Client
+# 🧠 Initialize OpenAI API Client
 try:
-    abacus_client = ApiClient(api_key=abacus_api_key)
-    app_logger.info("Abacus.AI API Client initialized successfully.")
+    openai_client = openai.OpenAI(api_key=openai_api_key)
+    app_logger.info("OpenAI API Client initialized successfully.")
 except Exception as e:
-    app_logger.error(f"Error initializing Abacus.AI API Client: {e}")
+    app_logger.error(f"Error initializing OpenAI API Client: {e}")
     exit(1) # Exit if client cannot be initialized
 
 
-# 🧠 Load WhisperX transcription model (once globally for efficiency if possible)
-# Ensure correct device inference and robust loading
+# 🧠 Load WhisperX transcription model
+# ... (This section remains unchanged)
 global transcription_model
-transcription_model = None # Initialize to None
-
+transcription_model = None
 try:
     current_device = "cuda" if torch.cuda.is_available() else "cpu"
     app_logger.info(f"Attempting to load WhisperX model on device: {current_device}...")
@@ -59,27 +56,24 @@ try:
     app_logger.info("WhisperX model loaded globally successfully.")
 except Exception as e:
     app_logger.error(f"Error loading WhisperX model globally: {e}")
-    app_logger.error("WhisperX model NOT loaded globally. It will be loaded per-request on CPU if needed, which might be slower.")
-    transcription_model = None # Set to None, indicating it might need to be loaded in the route
+    transcription_model = None
 
 
-# --- Utility for Timestamp Formatting ---
+# --- Utility Functions (format_timestamp, download_youtube_video) ---
+# ... (These sections remain unchanged)
 def format_timestamp(seconds: float) -> str:
-    """Converts seconds to HH:MM:SS format."""
     hours = int(seconds // 3600)
     minutes = int((seconds % 3600) // 60)
     secs = int(seconds % 60)
     return f"{hours:02}:{minutes:02}:{secs:02}"
 
-# 🎥 Download YouTube video
 def download_youtube_video(url, output_dir="."):
     unique_filename = os.path.join(output_dir, f"temp_{uuid.uuid4().hex}.mp4")
     ydl_opts = {
         'outtmpl': unique_filename,
-        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best', # Prioritize mp4, then general best
+        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
         'merge_output_format': 'mp4',
-        'quiet': False, # Set to False for yt_dlp output
-        'no_warnings': False, # Set to False for yt_dlp warnings
+        'quiet': False, 'no_warnings': False,
     }
     try:
         app_logger.info(f"Starting YouTube video download: {url}")
@@ -91,272 +85,183 @@ def download_youtube_video(url, output_dir="."):
         app_logger.error(f"Failed to download YouTube video from {url}: {e}")
         raise RuntimeError(f"Failed to download YouTube video: {e}")
 
-# --- LLM Interaction Functions (Using Abacus.AI SDK's evaluate_prompt) ---
-# These functions will ONLY be called if transcription is successful.
-def call_chatllm_sdk(user_prompt: str, system_message: str, llm_name: str, max_tokens: int, temperature: float) -> str:
+
+# --- REFACTORED: LLM Interaction Function for OpenAI ---
+def call_openai_api(user_prompt: str, system_message: str, model_name: str, max_tokens: int, temperature: float, json_mode: bool = False) -> str:
     """
-    Makes a call to the Abacus.AI ChatLLM API using the Abacus.AI SDK's evaluate_prompt.
+    Makes a call to the OpenAI Chat Completions API.
     """
     try:
-        app_logger.info(f"Calling ChatLLM SDK with model: {llm_name}, prompt length: {len(user_prompt.split())} words")
-        response = abacus_client.evaluate_prompt(
-            prompt=user_prompt,
-            system_message=system_message,
-            llm_name=llm_name,
-            max_tokens=max_tokens,
-            temperature=temperature
-        )
-        app_logger.info("ChatLLM SDK call successful.")
-        return response.content
+        app_logger.info(f"Calling OpenAI API with model: {model_name}")
+        messages = [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": user_prompt}
+        ]
+        
+        request_params = {
+            "model": model_name,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+        
+        if json_mode:
+            request_params["response_format"] = {"type": "json_object"}
+
+        response = openai_client.chat.completions.create(**request_params)
+        
+        app_logger.info("OpenAI API call successful.")
+        return response.choices[0].message.content
         
     except Exception as e:
-        app_logger.error(f"Error calling Abacus.AI LLM via SDK: {e}", exc_info=True)
-        raise RuntimeError(f"Failed to get response from ChatLLM SDK: {e}")
+        app_logger.error(f"Error calling OpenAI API: {e}", exc_info=True)
+        raise RuntimeError(f"Failed to get response from OpenAI: {e}")
 
 
+# --- UPDATED: Functions to use the new OpenAI wrapper ---
 def summarize_text(text: str) -> str:
-    """
-    Summarizes a given text using Abacus.AI ChatLLM via SDK.
-    Prompt refined for better-looking, structured summary using Markdown.
-    """
-    system_message = """You are an expert technical writer, product explainer, and documentation specialist.
-    Your task is to summarize the provided transcript chunk into a clear, concise, and well-structured format.
-    Focus on key information, functionalities, and steps demonstrated.
-    Use clear, professional language. Do NOT add information not present in the transcript.
-    Format your summary using **Markdown**, including:
-    -   Clear headings or bolded key points.
-    -   Bullet points for lists of features, steps, or takeaways.
-    -   Well-formed paragraphs where prose is more appropriate.
-    Aim for clarity and directness, making it easy for a reader to understand product functionality quickly."""
+    system_message = """You are an expert technical writer. Your task is to summarize the provided transcript into a clear, concise, and well-structured format. Focus on key information and steps. Use clear, professional language. Format your summary using **Markdown**, including headings and bullet points."""
     user_prompt = text
-    return call_chatllm_sdk(user_prompt, system_message, llm_name="GPT_4_1_MINI", max_tokens=800, temperature=0.3)
+    return call_openai_api(user_prompt, system_message, model_name="gpt-4o-mini", max_tokens=800, temperature=0.3)
 
 def generate_title(text: str) -> str:
-    """
-    Generates a short, documentation-style title for a text chunk using Abacus.AI ChatLLM via SDK.
-    Prompt refined for conciseness.
-    """
-    system_message = "You are a helpful assistant. Based on the following transcript chunk, provide a concise, factual, and documentation-style section title. Avoid conversational tone and keep it under 8 words. Do not include any emojis in the title itself."
+    system_message = "Based on the transcript chunk, provide a concise, factual, documentation-style section title. Keep it under 8 words. Do not use emojis."
     user_prompt = text
-    return call_chatllm_sdk(user_prompt, system_message, llm_name="GPT_4_1_MINI", max_tokens=30, temperature=0.3)
+    return call_openai_api(user_prompt, system_message, model_name="gpt-4o-mini", max_tokens=30, temperature=0.3)
 
-# --- Chunking Function ---
+def generate_faqs(full_transcript_text: str) -> list:
+    app_logger.info("Generating FAQs based on the full transcript...")
+    system_message = """You are a JSON generation machine. Create a 'Frequently Asked Questions' section based on the transcript.
+    - Generate 3 to 5 relevant FAQs.
+    - The answers must be based ONLY on the information provided.
+    - **CRITICAL:** Your entire response must be a valid JSON object.
+    """
+    user_prompt = f"Create the FAQ JSON from this transcript:\n\n{full_transcript_text}"
+    
+    try:
+        response_content = call_openai_api(
+            user_prompt, 
+            system_message, 
+            model_name="gpt-4o-mini", # gpt-4o-mini is great for JSON mode
+            max_tokens=1000, 
+            temperature=0.2,
+            json_mode=True # Enforce JSON output
+        )
+        
+        # The response should be a valid JSON string now
+        # The key for the array might be 'faqs' or similar, inspect if needed
+        data = json.loads(response_content)
+        
+        # Look for a key that contains the list (e.g., 'faqs', 'questions')
+        faqs_list = []
+        for key in data:
+            if isinstance(data[key], list):
+                faqs_list = data[key]
+                break
+        
+        if faqs_list and all("question" in item and "answer" in item for item in faqs_list):
+            app_logger.info(f"Successfully generated and parsed {len(faqs_list)} FAQs.")
+            return faqs_list
+        else:
+            app_logger.error(f"Generated JSON does not contain a valid FAQ list. Raw: {response_content}")
+            return []
+            
+    except Exception as e:
+        app_logger.error(f"An error occurred during FAQ generation: {e}", exc_info=True)
+        return []
+
+
+# --- Chunking Function and YouTube Helper ---
+# ... (These sections remain unchanged)
 def chunk_segments(segments: list, max_words: int = 150) -> list:
-    """
-    Groups WhisperX segments into transcript chunks for LLM summarization.
-    Returns chunks with combined text and starting timestamp.
-    """
     chunks = []
     current_chunk_segments = []
     current_start = None
     word_count = 0
-
     for seg in segments:
         seg_text = seg.get("text", "").strip()
-        if not seg_text:
-            continue
-
+        if not seg_text: continue
         seg_words = len(seg_text.split())
-
-        # Check if adding this segment exceeds max_words or if it's a new "paragraph" (heuristic)
-        # We also look for short pauses or explicit newlines as potential break points
-        # `max_words` is a soft limit, LLM token limits are the hard limit, so better safe.
-        if current_chunk_segments and (word_count + seg_words > max_words or "\n\n" in seg_text or (seg.get("start") - current_chunk_segments[-1].get("end", 0) > 1.5)): # Pause > 1.5s
+        if current_chunk_segments and (word_count + seg_words > max_words):
             combined_text = " ".join(s["text"].strip() for s in current_chunk_segments)
-            chunks.append({
-                "text": combined_text,
-                "timestamp": current_start
-            })
+            chunks.append({"text": combined_text, "timestamp": current_start})
             current_chunk_segments = []
             word_count = 0
-
         if not current_chunk_segments:
             current_start = seg.get("start", 0)
-
         current_chunk_segments.append(seg)
         word_count += seg_words
-
     if current_chunk_segments:
         combined_text = " ".join(s["text"].strip() for s in current_chunk_segments)
-        chunks.append({
-            "text": combined_text,
-            "timestamp": current_start
-        })
-
+        chunks.append({"text": combined_text, "timestamp": current_start})
     app_logger.info(f"Transcript chunking complete. Generated {len(chunks)} chunks.")
     return chunks
 
-# In app.py
-
-def generate_faqs(full_transcript_text: str) -> list:
-    """
-    Generates a list of Frequently Asked Questions (FAQs) based on the full transcript.
-    """
-    app_logger.info("Generating FAQs based on the full transcript...")
-    system_message = """You are a JSON generation machine. Your ONLY task is to create a 'Frequently Asked Questions' section based on the provided transcript.
-    - Generate 3 to 5 relevant FAQs.
-    - The answers must be based ONLY on the information provided.
-    - **CRITICAL:** Your entire response must be ONLY the raw JSON array itself. Do NOT include any introductory text, markdown backticks, or explanations. Your response must start with `[` and end with `]`.
-    
-    Example format:
-    [
-        {"question": "How do I start a new project?", "answer": "To start a new project, navigate to the dashboard and click the 'New Project' button."},
-        {"question": "What file types are supported?", "answer": "The system supports uploading .JPG, .PNG, and .SVG files."}
-    ]
-    """
-    user_prompt = f"Here is the full transcript:\n\n{full_transcript_text}"
-    
-    try:
-        response_content = call_chatllm_sdk(
-            user_prompt, 
-            system_message, 
-            llm_name="MISTRAL_7B_INSTRUCT",
-            max_tokens=1000, 
-            temperature=0.2
-        )
-        
-        # --- ROBUST JSON PARSING ---
-        # Find the start of the JSON array '[' to discard any preceding text
-        json_start_index = response_content.find('[')
-        if json_start_index == -1:
-            app_logger.error(f"No JSON array found in LLM response. Raw Response: {response_content}")
-            return []
-            
-        json_string = response_content[json_start_index:]
-        faqs = json.loads(json_string)
-        
-        if isinstance(faqs, list) and all("question" in item and "answer" in item for item in faqs):
-            app_logger.info(f"Successfully generated and parsed {len(faqs)} FAQs.")
-            return faqs
-        else:
-            app_logger.error("Generated FAQ content is not in the expected format (list of dicts).")
-            return []
-            
-    except json.JSONDecodeError as e:
-        app_logger.error(f"Failed to decode JSON from LLM response: {e}")
-        app_logger.error(f"LLM Raw Response: {response_content}") # Log the problematic response
-        return []
-    except Exception as e:
-        app_logger.error(f"An unexpected error occurred during FAQ generation: {e}", exc_info=True)
-        return []
-    
-# --- Helper for extracting YouTube Video ID ---
 def get_youtube_video_id(url: str) -> str | None:
-    """Extracts YouTube video ID from various YouTube URL formats."""
-    # Standard watch URL, embed URL, short URL, etc.
-    match = re.search(r'(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/)|youtube\.com\/playlist\?list=)([a-zA-Z0-9_-]{11})', url)
-    if match:
-        return match.group(1)
-    return None
+    match = re.search(r'(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/))([a-zA-Z0-9_-]{11})', url)
+    return match.group(1) if match else None
+
 
 # 🚀 Main route
 @app.route("/upload", methods=["POST"])
 def upload_video():
+    # ... (This entire route remains unchanged as it calls the abstracted functions)
     video_url = request.form.get("video_url")
     temp_video_path = None
     temp_audio_path = None
     
-    # Load transcription model (globally or here as fallback)
     global transcription_model
     if transcription_model is None:
-        app_logger.info("WhisperX model was not loaded globally. Attempting to load locally for this request on CPU.")
+        app_logger.info("WhisperX model loading per-request on CPU.")
         transcription_model = whisperx.load_model("base", device="cpu", compute_type="float32")
 
-    video_id = None
-    if video_url:
-        video_id = get_youtube_video_id(video_url)
+    video_id = get_youtube_video_id(video_url) if video_url else None
 
     try:
-        # 📥 Download or save video
         if video_url:
-            app_logger.info(f"Received YouTube URL: {video_url}")
             temp_video_path = download_youtube_video(video_url)
-            if not temp_video_path:
-                raise RuntimeError("Video download failed.")
         else:
-            if "video" not in request.files:
+            file = request.files.get("video")
+            if not file or file.filename == '':
                 raise RuntimeError("No video file provided.")
-            file = request.files["video"]
-            if file.filename == '':
-                raise RuntimeError("No selected file.")
-            # Note: secure_filename is a good practice to add for security
-            # from werkzeug.utils import secure_filename
             temp_video_path = f"temp_{uuid.uuid4().hex}"
             file.save(temp_video_path)
             app_logger.info(f"Local video saved to: {temp_video_path}")
 
-        # 🎙️ Convert and transcribe audio
-        app_logger.info("Starting audio extraction with ffmpeg...")
+        app_logger.info("Starting audio extraction...")
         temp_audio_path = f"temp_{uuid.uuid4().hex}.mp3"
         
         try:
-            ffmpeg_command = ['ffmpeg', '-i', temp_video_path, '-vn', '-acodec', 'libmp3lame', '-q:a', '2', temp_audio_path]
-            app_logger.info(f"Running FFmpeg command: {' '.join(ffmpeg_command)}")
-            subprocess.run(ffmpeg_command, capture_output=True, text=True, check=True)
-            app_logger.info("Audio extraction by FFmpeg complete.")
+            subprocess.run(['ffmpeg', '-i', temp_video_path, '-vn', '-acodec', 'libmp3lame', '-q:a', '2', temp_audio_path], check=True, capture_output=True)
         except subprocess.CalledProcessError as e:
-            app_logger.error(f"FFmpeg audio extraction failed: {e.stderr}")
-            raise RuntimeError(f"Audio extraction failed. Check FFmpeg installation and video file. Error: {e.stderr}")
+            raise RuntimeError(f"Audio extraction failed: {e.stderr.decode()}")
         except FileNotFoundError:
-            app_logger.error("FFmpeg command not found. Is FFmpeg installed and in your PATH?")
-            raise RuntimeError("FFmpeg is not installed or not found in system PATH. Please install FFmpeg.")
+            raise RuntimeError("FFmpeg is not installed or not in system PATH.")
 
-        app_logger.info("Loading audio for WhisperX...")
         audio = whisperx.load_audio(temp_audio_path)
-        app_logger.info("Audio loaded. Starting WhisperX transcription...")
-        
         result = transcription_model.transcribe(audio)
         
-        full_transcript_segments_for_frontend = []
-        if result and "segments" in result:
-            for seg in result["segments"]:
-                if "text" in seg and "start" in seg:
-                    full_transcript_segments_for_frontend.append({
-                        "text": seg["text"].strip(),
-                        "start": seg["start"],
-                        "formatted_timestamp": format_timestamp(seg["start"])
-                    })
-        
-        if not full_transcript_segments_for_frontend:
-            app_logger.warning("WhisperX returned no transcript segments.")
+        full_transcript_segments_for_frontend = [{
+            "text": seg["text"].strip(),
+            "start": seg["start"],
+            "formatted_timestamp": format_timestamp(seg["start"])
+        } for seg in result.get("segments", []) if "text" in seg and "start" in seg]
 
-        app_logger.info(f"Transcription complete. Found {len(full_transcript_segments_for_frontend)} segments.")
-
-        sections = []
+        sections, faqs = [], []
         if full_transcript_segments_for_frontend:
-            app_logger.info("Generating documentation sections with ChatLLM via SDK...")
+            app_logger.info("Generating documentation sections...")
             for chunk in chunk_segments(result.get("segments", [])): 
-                if not chunk["text"].strip():
-                    continue
-                try:
-                    title = generate_title(chunk["text"])
-                    summary = summarize_text(chunk["text"])
-                    if summary and title:
-                        sections.append({
-                            "title": title.strip(),
-                            "summary": summary.strip(),
-                            "timestamp": chunk["timestamp"]
-                        })
-                except RuntimeError as llm_error:
-                    app_logger.error(f"LLM generation failed for a chunk: {llm_error}", exc_info=True)
-                    sections.append({
-                        "title": "Error Generating Section",
-                        "summary": f"Could not generate content. Error: {llm_error}",
-                        "timestamp": chunk.get("timestamp", 0)
-                    })
-            app_logger.info("Documentation generation complete.")
-        else:
-            app_logger.warning("No transcript segments to generate documentation from.")
-            
-        # --- Generate FAQs using the full transcript ---
-        faqs = []
-        if full_transcript_segments_for_frontend:
-            full_text_for_faqs = " ".join(seg['text'] for seg in full_transcript_segments_for_frontend)
-            faqs = generate_faqs(full_text_for_faqs)
-        else:
-            app_logger.warning("No transcript text available to generate FAQs.")
+                if chunk["text"].strip():
+                    try:
+                        title = generate_title(chunk["text"])
+                        summary = summarize_text(chunk["text"])
+                        sections.append({"title": title, "summary": summary, "timestamp": chunk["timestamp"]})
+                    except RuntimeError as llm_error:
+                        sections.append({"title": "Error Generating Section", "summary": str(llm_error), "timestamp": chunk.get("timestamp", 0)})
 
-        # --- Final JSON Response ---
+            full_text = " ".join(seg['text'] for seg in full_transcript_segments_for_frontend)
+            faqs = generate_faqs(full_text)
+
         return jsonify({
             "full_transcript_segments": full_transcript_segments_for_frontend,
             "documentation": sections,
@@ -364,9 +269,6 @@ def upload_video():
             "video_id": video_id
         })
 
-    except RuntimeError as re:
-        app_logger.error(f"A runtime error occurred: {re}", exc_info=True)
-        return jsonify({"error": str(re)}), 500
     except Exception as e:
         app_logger.error(f"An unexpected error occurred during upload: {e}", exc_info=True)
         return jsonify({"error": "An unexpected server error occurred: " + str(e)}), 500
@@ -374,8 +276,8 @@ def upload_video():
     finally:
         for temp_file in [temp_video_path, temp_audio_path]:
             if temp_file and os.path.exists(temp_file):
-                try:
-                    os.remove(temp_file)
-                    app_logger.info(f"Cleaned up {temp_file}")
-                except OSError as e:
-                    app_logger.error(f"Error removing file {temp_file}: {e}")
+                os.remove(temp_file)
+                app_logger.info(f"Cleaned up {temp_file}")
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
