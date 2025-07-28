@@ -4,6 +4,8 @@ import { FaMicrophone, FaRobot, FaCloudUploadAlt } from "react-icons/fa";
 import { MdStorage } from "react-icons/md";
 import "./App.css";
 
+
+
 function Home() {
   const navigate = useNavigate();
 
@@ -31,8 +33,8 @@ function Home() {
           </div>
           <div className="feature-card">
             <FaRobot className="icon" />
-            <h3>BART Large CNN by Meta AI</h3>
-            <p> A pretrained summarization model available via Hugging Face</p>
+            <h3>Abacus AI Integration</h3>
+            <p> A wide range of trained models</p>
           </div>
           
           <div className="feature-card">
