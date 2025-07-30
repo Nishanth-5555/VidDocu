@@ -528,3 +528,244 @@ body {
     .youtube-input, .submit-btn { width: 100%; }
     .url-submit-row { flex-direction: column; align-items: stretch; }
 }
+/* --- Language Selector Styling --- */
+.language-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 1rem;
+}
+
+.language-selector label {
+  font-weight: 500;
+  color: var(--dark-gray);
+}
+
+.language-selector select {
+  padding: 8px 12px;
+  border: 1px solid var(--medium-gray);
+  border-radius: var(--border-radius);
+  background-color: white;
+  font-size: 1rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.language-selector select:hover {
+  border-color: var(--primary-color);
+}
+
+.language-selector select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+/* --- Button Styling (Download & Chat) --- */
+.download-btn,
+.chat-input-area button {
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  background-color: transparent;
+  border: 1px solid var(--primary-color);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  text-decoration: none; /* For <a> tags styled as buttons */
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease-in-out;
+}
+
+.download-btn:hover,
+.chat-input-area button:hover {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.chat-input-area button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: transparent;
+  color: var(--dark-gray);
+  border-color: var(--medium-gray);
+}
+
+/* Panel Header to align title and button */
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--medium-gray);
+  padding-bottom: 0.5rem;
+}
+
+.panel-header h3 {
+  margin: 0;
+}
+/* --- New Layout Styles --- */
+.results-grid {
+  display: flex;
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.video-column {
+  flex: 3; /* Takes up 3 parts of the space */
+}
+
+.transcript-column {
+  flex: 2; /* Takes up 2 parts of the space */
+  max-height: 500px; /* Give a max height to the transcript panel */
+  display: flex;
+  flex-direction: column;
+}
+
+.transcript-output {
+    overflow-y: auto; /* Make transcript scrollable */
+    flex-grow: 1;
+}
+
+.docs-column,
+.faq-column {
+    flex: 1; /* Each takes half the space */
+}
+
+/* --- Floating Chat Widget Styles --- */
+.chat-fab {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background-color: #6f42c1; /* Purple theme color */
+  color: white;
+  font-size: 2rem;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  transition: transform 0.2s ease-in-out, background-color 0.2s;
+}
+
+.chat-fab:hover {
+  transform: scale(1.1);
+  background-color: #5a3d9a;
+}
+
+.chat-window {
+  position: fixed;
+  bottom: 6rem;
+  right: 2rem;
+  width: 370px;
+  max-width: 90vw;
+  height: 500px;
+  max-height: 70vh;
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  z-index: 999;
+  transform: translateY(20px) scale(0.95);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.chat-window.open {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+  visibility: visible;
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e9ecef;
+  background-color: #f8f9fa;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.chat-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.chat-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #6c757d;
+}
+
+.chat-body {
+  flex-grow: 1;
+  padding: 1rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.chat-message {
+  padding: 0.6rem 1rem;
+  border-radius: 18px;
+  max-width: 80%;
+}
+
+.chat-message.user {
+  background-color: #6f42c1;
+  color: white;
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-message.bot {
+  background-color: #e9ecef;
+  color: #212529;
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+
+.chat-message p {
+    margin: 0;
+}
+
+.chat-input-area {
+  display: flex;
+  padding: 0.75rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.chat-input-area input {
+  flex-grow: 1;
+  border: 1px solid #ced4da;
+  border-radius: 18px;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  margin-right: 0.5rem;
+}
+
+.chat-input-area input:focus {
+  outline: none;
+  border-color: #6f42c1;
+  box-shadow: 0 0 0 2px rgba(111, 66, 193, 0.2);
+}
+
+.chat-input-area button {
+    /* Re-using submit-btn style */
+    flex-shrink: 0;
+}
