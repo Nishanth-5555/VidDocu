@@ -1,4 +1,4 @@
-# app.py (Phase 2 - Final with Updated AI Assistant Logic)
+# app.py (Phase 3 - Final with Navigation Logic)
 
 import os
 import json
@@ -15,27 +15,22 @@ import logging
 import subprocess
 import openai
 
-# --- Configuration ---
+# --- Configuration & Setup ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 app_logger = logging.getLogger(__name__)
 UPLOAD_FOLDER = 'uploads'
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
-
-# --- Environment and API Setup ---
+if not os.path.exists(UPLOAD_FOLDER): os.makedirs(UPLOAD_FOLDER)
 load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
 if not openai_api_key:
     app_logger.error("Error: OPENAI_API_KEY not found in .env file.")
     exit(1)
 
-# --- Flask App Initialization ---
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.debug = True
 CORS(app)
 
-# --- AI Model Initialization ---
 try:
     openai_client = openai.OpenAI(api_key=openai_api_key)
     app_logger.info("OpenAI API Client initialized.")
@@ -46,20 +41,17 @@ except Exception as e:
 transcription_model = None
 try:
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    if device == "cpu":
-        torch.set_num_threads(os.cpu_count())
+    if device == "cpu": torch.set_num_threads(os.cpu_count())
     app_logger.info(f"Loading WhisperX model on device: {device}...")
     transcription_model = whisperx.load_model("base", device, compute_type="float32")
     app_logger.info("Transcription model loaded globally.")
 except Exception as e:
     app_logger.error(f"Could not load AI models globally: {e}")
 
-# --- Helper Functions (Unchanged) ---
+# --- Helper Functions ---
 def format_timestamp(seconds: float) -> str:
     if not isinstance(seconds, (int, float)) or seconds < 0: return "00:00:00"
-    hours = int(seconds // 3600)
-    minutes = int((seconds % 3600) // 60)
-    secs = int(seconds % 60)
+    hours = int(seconds // 3600); minutes = int((seconds % 3600) // 60); secs = int(seconds % 60)
     return f"{hours:02}:{minutes:02}:{secs:02}"
 
 def call_openai_api(user_prompt: str, system_message: str, model_name: str, max_tokens: int, temperature: float, json_mode: bool = False) -> str:
@@ -85,22 +77,19 @@ def generate_faqs(full_transcript_text: str) -> list:
     user_prompt = f"Create the FAQ JSON from this transcript:\n\n{full_transcript_text}"
     try:
         response_content = call_openai_api(user_prompt, system_message, "gpt-4o-mini", 1000, 0.2, json_mode=True)
-        data = json.loads(response_content)
-        faqs_list = data.get("faqs", [])
+        data = json.loads(response_content); faqs_list = data.get("faqs", [])
         return faqs_list if isinstance(faqs_list, list) else []
     except Exception: return []
 
 def chunk_segments(segments: list, max_words: int = 150) -> list:
-    chunks, current_chunk, word_count = [], [], 0
-    current_start = None
+    chunks, current_chunk, word_count = [], [], 0; current_start = None
     for seg in segments:
         seg_words = len(seg.get("text", "").split())
         if current_chunk and (word_count + seg_words > max_words):
             chunks.append({"text": " ".join(s["text"].strip() for s in current_chunk), "timestamp": current_start})
             current_chunk, word_count = [], 0
         if not current_chunk: current_start = seg.get("start", 0)
-        current_chunk.append(seg)
-        word_count += seg_words
+        current_chunk.append(seg); word_count += seg_words
     if current_chunk: chunks.append({"text": " ".join(s["text"].strip() for s in current_chunk), "timestamp": current_start})
     return chunks
 
@@ -118,36 +107,57 @@ def ask_question():
     data = request.get_json()
     question, context = data.get("question"), data.get("context")
     if not question or not context: return jsonify({"error": "Question and context are required."}), 400
-    
-    # --- MODIFIED: New prompt for more flexible answers ---
-    system_message = """You are a helpful Q&A assistant. Your primary goal is to answer the user's question based on the provided video transcript context.
-    - First, find the direct answer within the context.
-    - Then, you may briefly supplement the answer with your general knowledge if it adds helpful, relevant information. Always prioritize the transcript's content as the main source of truth.
-    - If the answer is not in the context at all, you can use your general knowledge to provide a helpful response, but you MUST state that this information is not from the video.
-    """
+    system_message = "You are a helpful Q&A assistant. Your primary goal is to answer the user's question based on the provided video transcript. You may supplement with general knowledge, but always prioritize the transcript. If the answer isn't in the transcript, you can use general knowledge but must state that the information is not from the video."
     user_prompt = f"CONTEXT:\n\"\"\"\n{context}\n\"\"\"\n\nQUESTION: {question}"
-    
     try:
-        # --- MODIFIED: Increased temperature for more natural responses ---
         answer = call_openai_api(user_prompt, system_message, "gpt-4o-mini", 300, 0.3)
         return jsonify({"answer": answer})
     except Exception as e:
         return jsonify({"error": f"LLM error: {e}"}), 500
 
+@app.route("/command", methods=["POST"])
+def handle_command():
+    data = request.get_json()
+    user_text = data.get("text")
+    if not user_text:
+        return jsonify({"error": "Text is required."}), 400
+
+    url_match = re.search(r'https?://[^\s]+', user_text)
+    
+    system_message = """You are a command interpreter. Analyze the user's text and determine their intent.
+    Respond with a JSON object containing an 'intent' and optional 'parameters'.
+    
+    Possible intents are:
+    1. 'upload_youtube_video': If the user provides a YouTube URL to upload. The URL will be provided separately.
+    2. 'navigate': If the user wants to go to a different page. The 'page' parameter can be 'home', 'faqs', or 'upload'. Keywords: "go to", "take me to", "navigate to", "home page", "faq page".
+    3. 'scroll_to_section': If the user wants to scroll to a section on the CURRENT page. The 'section' parameter can be 'faq', 'docs', or 'upload'. Keywords: "scroll to", "show me the".
+    4. 'answer_question': For any other general question.
+    
+    Examples:
+    - "take me to the faq page" -> {"intent": "navigate", "parameters": {"page": "faqs"}}
+    - "go home" -> {"intent": "navigate", "parameters": {"page": "home"}}
+    - "show me the generated documentation" -> {"intent": "scroll_to_section", "parameters": {"section": "docs"}}
+    """
+    
+    if url_match:
+        return jsonify({"intent": "upload_youtube_video", "parameters": {"url": url_match.group(0)}})
+
+    try:
+        response_content = call_openai_api(user_text, system_message, "gpt-4o-mini", 100, 0.1, json_mode=True)
+        return jsonify(json.loads(response_content))
+    except Exception as e:
+        return jsonify({"error": f"Command interpretation error: {e}"}), 500
+
 @app.route("/upload", methods=["POST"])
 def upload_video():
     global transcription_model
     if not transcription_model: return jsonify({"error": "Transcription model is not loaded."}), 500
-
-    video_url = request.form.get("video_url")
-    language = request.form.get("language", "en")
+    video_url = request.form.get("video_url"); language = request.form.get("language", "en")
     processing_path, audio_path = None, None
     video_id, video_playback_url, video_download_url, video_title = None, None, None, "video_analysis"
-
     try:
         if video_url:
-            video_id = get_youtube_video_id(video_url)
-            temp_dir = 'temp_downloads'
+            video_id = get_youtube_video_id(video_url); temp_dir = 'temp_downloads'
             if not os.path.exists(temp_dir): os.makedirs(temp_dir)
             ydl_opts = {'outtmpl': os.path.join(temp_dir, f"{uuid.uuid4().hex}.mp4"), 'format': 'best[ext=mp4]/best'}
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -155,24 +165,17 @@ def upload_video():
                 processing_path = info['requested_downloads'][0]['filepath']
                 video_title = info.get('title', 'youtube_video')
         else:
-            file = request.files.get("video")
+            file = request.files.get("video");
             if not file or not file.filename: raise RuntimeError("No video file provided.")
-            base_filename = secure_filename(file.filename)
-            video_title, _ = os.path.splitext(base_filename)
+            base_filename = secure_filename(file.filename); video_title, _ = os.path.splitext(base_filename)
             filename = f"{uuid.uuid4().hex}_{base_filename}"
-            processing_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(processing_path)
-            video_playback_url = f"/videos/{filename}"
-            video_download_url = video_playback_url
-
+            processing_path = os.path.join(app.config['UPLOAD_FOLDER'], filename); file.save(processing_path)
+            video_playback_url = f"/videos/{filename}"; video_download_url = video_playback_url
         audio_path = f"temp_{uuid.uuid4().hex}.wav"
         subprocess.run(['ffmpeg', '-i', processing_path, '-ar', '16000', '-ac', '1', '-c:a', 'pcm_s16le', audio_path], check=True, capture_output=True)
-        
         result = transcription_model.transcribe(whisperx.load_audio(audio_path), language=language)
-        
         segments = result.get("segments", [])
         transcript = [{"text": s["text"].strip(), "start": s.get("start", 0), "formatted_timestamp": format_timestamp(s.get("start", 0))} for s in segments]
-        
         sections, faqs = [], []
         if transcript:
             full_text = " ".join(s['text'] for s in transcript)
@@ -182,15 +185,11 @@ def upload_video():
                 except Exception as e:
                     sections.append({"title": "Error Generating Section", "summary": str(e), "timestamp": chunk.get("timestamp", 0)})
             faqs = generate_faqs(full_text)
-        
         return jsonify({
             "full_transcript_segments": transcript, "documentation": sections, "faqs": faqs,
-            "video_id": video_id,
-            "video_playback_url": video_playback_url,
-            "video_download_url": video_download_url,
-            "video_title": video_title
+            "video_id": video_id, "video_playback_url": video_playback_url,
+            "video_download_url": video_download_url, "video_title": video_title
         })
-
     except Exception as e:
         app_logger.error(f"An error occurred during upload: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
